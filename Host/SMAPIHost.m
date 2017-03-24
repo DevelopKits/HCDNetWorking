@@ -28,7 +28,7 @@
         
 #ifdef DEBUG
         self.debug = YES;
-        self.baseUrl = @"";
+        self.baseUrl = @"http://120.77.211.235/ic/api/";
 #else
         self.debug = NO;
         self.baseUrl = @"";

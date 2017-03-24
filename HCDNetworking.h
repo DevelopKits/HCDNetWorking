@@ -14,6 +14,5 @@
 #import "HCDLog.h"
 #import "SMAPIHost.h"
 #import "HCDNetworkConfig.h"
-#import "HCDRequest.h"
 
 #endif /* HCDNetworking_h */

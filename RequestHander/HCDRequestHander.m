@@ -7,7 +7,6 @@
 //
 
 #import "HCDRequestHander.h"
-#import "HCDRequest.h"
 #import "AFURLSessionManager.h"
 #import "HCDLog.h"
 #import "SMAPIHost.h"
@@ -15,7 +14,7 @@
 
 
 @interface HCDRequestHander ()
-@property (strong, nonatomic) AFURLSessionManager *sessionManager;
+@property (strong, nonatomic) AFHTTPSessionManager *sessionManager;
 @property (nonatomic, strong) Reachability *reachability;
 @end
 
@@ -33,71 +32,125 @@
     return _sharedInstance;
 }
 
-- (void)getWithAPIName:(NSString *)apiName apiVersion:(NSString *)apiVersion parameters:(id)parameters cachIdentifier:(NSString *)cachIdentifier success:(RequestSuccess)success failure:(RequestFaild)failure
+- (void)requestWithAPIName:(NSString *)apiName method:(HttpMethod)method parameters:(id)parameters success:(RequestSuccess)success failure:(RequestFaild)failure
 {
-    
-    NSURLRequest *request = [[HCDRequest alloc]getWithAPIName:apiName apiVersion:apiVersion parameters:parameters cachIdentifier:cachIdentifier];
-    
-    [self startHttpRequest:request success:success failure:failure];
+    NSString *url = [NSMutableString stringWithFormat:@"%@%@",[SMAPIHost shareHost].baseUrl,apiName];
+    [self startHttpRequestWithUrl:url method:method para:parameters success:success failure:failure];
 }
 
-- (void)postWithAPIName:(NSString *)apiName apiVersion:(NSString *)apiVersion parameters:(id)parameters cachIdentifier:(NSString *)cachIdentifier jsonPara:(BOOL)json success:(RequestSuccess)success failure:(RequestFaild)failure
-{
-    
-    NSURLRequest *request = [[HCDRequest alloc] postWithAPIName:apiName apiVersion:apiVersion parameters:parameters cachIdentifier:cachIdentifier jsonPara:json];
-    
-    [self startHttpRequest:request success:success failure:failure];
-}
-
-- (void)putWithAPIName:(NSString *)apiName apiVersion:(NSString *)apiVersion parameters:(id)parameters cachIdentifier:(NSString *)cachIdentifier success:(RequestSuccess)success failure:(RequestFaild)failure
-{
-    
-    NSURLRequest *request = [[HCDRequest alloc]putWithAPIName:apiName apiVersion:apiVersion parameters:parameters cachIdentifier:cachIdentifier];
-    
-    [self startHttpRequest:request success:success failure:failure];
-}
-
-- (void)postWithAPIName:(NSString *)apiName apiVersion:(NSString *)apiVersion parameters:(id)parameters fromData:(NSData *)data fileName:(NSString *)fileName mimeType:(NSString *)mineType name:(NSString *)name fileUrl:(NSURL *)fileUrl cachIdentifier:(NSString *)cachIdentifier success:(RequestSuccess)success failure:(RequestFaild)failure
+- (void)postWithAPIName:(NSString *)apiName parameters:(id)parameters fromData:(NSData *)data fileName:(NSString *)fileName mimeType:(NSString *)mineType name:(NSString *)name fileUrl:(NSURL *)fileUrl success:(RequestSuccess)success failure:(RequestFaild)failure
 {
     NSString *url = [NSMutableString stringWithFormat:@"%@%@",[SMAPIHost shareHost].baseUrl,apiName];
     
-     
+    [self networkReachableAndshowIndicator];
     
-    [[AFHTTPSessionManager manager] POST:url parameters:parameters constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
-        
+    [HCDLog logUrl:url params:parameters];
+    
+    [self.sessionManager POST:url parameters:parameters constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         if (data) {
-            [formData appendPartWithFormData:data name:name];
+            //表单
+            [formData appendPartWithFileData:data name:name fileName:fileName mimeType:mineType];
+            //流
+//            [formData appendPartWithInputStream:[NSInputStream inputStreamWithData:data] name:name fileName:fileName length:data.length mimeType:mineType];
         }else{
-//            [formData appendPartWithFileURL:fileUrl name:name fileName:nil mimeType:nil error:nil];
             
             if (fileUrl) {
                 [formData appendPartWithFileURL:fileUrl name:name error:nil];
+              
+                //流
+//                NSData *fileData = [NSData dataWithContentsOfURL:fileUrl];
+//                [formData appendPartWithInputStream:[NSInputStream inputStreamWithData:fileData] name:name fileName:fileName length:fileData.length mimeType:mineType];
+                
             }
         }
-        
-    } progress:nil success:^(NSURLSessionDataTask *task, id responseObject) {
+
+    } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+        [self hideNetworkIndicator];
         success(responseObject);
-    } failure:^(NSURLSessionDataTask * task, NSError * error) {
-        failure([error localizedDescription]);
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        
+        [self hideNetworkIndicator];
+        failure(error.localizedDescription);
     }];
 }
 
-//-(void)postWithAPIName:(NSString *)apiName apiVersion:(NSString *)apiVersion parameters:(id)parameters fromData:(NSData *)data cachIdentifier:(NSString *)cachIdentifier success:(RequestSuccess)success failure:(RequestFaild)failure
-//{
-//
-//    NSURLRequest *request = [[HCDRequest alloc]postWithAPIName:apiName apiVersion:apiVersion parameters:parameters cachIdentifier:cachIdentifier jsonPara:NO];
-//    [self startUploadRequest:request uploadData:data uploadProgress:nil success:success failure:failure];
-//}
-
-- (void)deleteWithAPIName:(NSString *)apiName apiVersion:(NSString *)apiVersion parameters:(id)parameters cachIdentifier:(NSString *)cachIdentifier success:(RequestSuccess)success failure:(RequestFaild)failure
+- (void)startHttpRequestWithUrl:(NSString *)url method:(HttpMethod)method para:(id)parameters success:(RequestSuccess)success failure:(RequestFaild)failure
 {
-    NSURLRequest *request = [[HCDRequest alloc]deleteWithAPIName:apiName apiVersion:apiVersion parameters:parameters cachIdentifier:cachIdentifier];
-    [self startHttpRequest:request success:success failure:failure];
+    [self networkReachableAndshowIndicator];
+    
+    [HCDLog logUrl:url params:parameters];
+
+    switch (method) {
+        case HttpMethodGET:
+        {
+            [self.sessionManager GET:url parameters:parameters success: ^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+                
+                [self hideNetworkIndicator];
+                success(responseObject);
+                
+            }failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+                
+            }];
+        }
+            break;
+        case HttpMethodPOST:
+        {
+            [self.sessionManager POST:url parameters:parameters success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+                
+                [self hideNetworkIndicator];
+                success(responseObject);
+                
+            } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+                
+                [self hideNetworkIndicator];
+                failure(error.localizedDescription);
+            }];
+        }
+            break;
+     
+        case HttpMethodPUT:
+        {
+            [self.sessionManager PUT:url parameters:parameters success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+                
+            } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+                
+            }];
+        }
+            break;
+        case HttpMethodDELETE:
+        {
+            [self.sessionManager DELETE:url parameters:parameters success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+                
+            } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+                
+            }];
+        }
+            break;
+        case HttpMethodPATH:
+        {
+            [self.sessionManager PATCH:url parameters:parameters success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
+                
+            } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+                
+            }];
+        }
+            break;
+        case HttpMethodHEAD:
+        {
+            [self.sessionManager HEAD:url parameters:parameters success:^(NSURLSessionDataTask * _Nonnull task) {
+                
+            } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+                
+            }];
+        }
+            break;
+        default: return;
+            break;
+    }
 }
 
-- (void)startHttpRequest:(NSURLRequest *)request success:(RequestSuccess)success failure:(RequestFaild)failure
+- (void)networkReachableAndshowIndicator
 {
-    
     if (self.networkStatus == NotReachable) {
         if (self.netWorkNotReachableHandler) {
             self.netWorkNotReachableHandler();
@@ -105,67 +158,22 @@
         }
     }
     
-    NSURLSessionDataTask *task = [self.sessionManager dataTaskWithRequest:request completionHandler:^(NSURLResponse * _Nonnull response, id  _Nonnull responseObject, NSError * _Nonnull error) {
-        
-        NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-        
-        [HCDLog logObject:[NSString stringWithFormat:@"status code : %li   message :%@",(long)httpResponse.statusCode,responseObject[@"appdata"][@"message"]]];
-        
-        if (httpResponse.statusCode != 200) {
-            
-            //[HCDLog logObject:httpResponse];
-            failure(responseObject[@"appdata"][@"message"]);
-        }else{
-            
-            if ([responseObject[@"appdata"][@"code"] integerValue] == 1) {
-                failure(responseObject[@"appdata"][@"message"]);
-            }else{
-                success(responseObject);
-            }
-        }
-    }];
-    
-    [task resume];
+    if (![[UIApplication sharedApplication] isNetworkActivityIndicatorVisible]) {
+        [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+    }
 }
 
-- (void)startUploadRequest:(NSURLRequest *)request uploadData:(NSData *)data uploadProgress:(NSProgress * __autoreleasing *)progress success:(RequestSuccess)success failure:(RequestFaild)failure
+- (void)hideNetworkIndicator
 {
-    
-    if (self.networkStatus == NotReachable) {
-        if (self.netWorkNotReachableHandler) {
-            self.netWorkNotReachableHandler();
-            return;
-        }
+    if ([[UIApplication sharedApplication] isNetworkActivityIndicatorVisible]) {
+        [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
     }
-    
-    NSURLSessionDataTask *task = [self.sessionManager uploadTaskWithRequest:request fromData:data progress:nil completionHandler:^(NSURLResponse *response, id responseObject, NSError *error) {
-        
-        NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-        
-        [HCDLog logObject:[NSString stringWithFormat:@"status code : %li   message :%@",(long)httpResponse.statusCode,responseObject[@"appdata"][@"message"]]];
-        
-        if (httpResponse.statusCode != 200) {
-            
-            //[HCDLog logObject:httpResponse];
-            failure(responseObject[@"appdata"][@"message"]);
-        }else{
-            
-            if ([responseObject[@"appdata"][@"code"] integerValue] == 1) {
-                failure(responseObject[@"appdata"][@"message"]);
-            }else{
-                success(responseObject);
-            }
-        }
-        
-    }];
-    
-    [task resume];
 }
 
 - (AFURLSessionManager *)sessionManager
 {
     if (!_sessionManager) {
-        _sessionManager = [[AFURLSessionManager alloc]init];
+        _sessionManager = [[AFHTTPSessionManager alloc]init];
         _sessionManager.responseSerializer = [AFJSONResponseSerializer serializer];
     }
     return _sessionManager;
@@ -183,5 +191,7 @@
 {
     return [self.reachability currentReachabilityStatus];
 }
+
+
 
 @end
