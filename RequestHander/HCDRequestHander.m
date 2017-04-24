@@ -175,6 +175,7 @@
     if (!_sessionManager) {
         _sessionManager = [[AFHTTPSessionManager alloc]init];
         _sessionManager.responseSerializer = [AFJSONResponseSerializer serializer];
+        _sessionManager.responseSerializer.acceptableContentTypes =  [NSSet setWithObjects:@"application/json", @"text/json", @"text/javascript",@"text/html", nil];
     }
     return _sessionManager;
 }
