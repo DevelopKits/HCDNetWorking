@@ -41,7 +41,7 @@
 - (void)postWithAPIName:(NSString *)apiName parameters:(id)parameters fromData:(NSData *)data fileName:(NSString *)fileName mimeType:(NSString *)mineType name:(NSString *)name fileUrl:(NSURL *)fileUrl success:(RequestSuccess)success failure:(RequestFaild)failure
 {
     NSString *url = [NSMutableString stringWithFormat:@"%@%@",[SMAPIHost shareHost].baseUrl,apiName];
-    
+    __weak typeof(self) weakSelf = self;
     [self networkReachableAndshowIndicator];
     
     [HCDLog logUrl:url params:parameters];
@@ -65,11 +65,11 @@
         }
 
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
-        [self hideNetworkIndicator];
+        [weakSelf hideNetworkIndicator];
         success(responseObject);
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
         
-        [self hideNetworkIndicator];
+        [weakSelf hideNetworkIndicator];
         failure(error.localizedDescription);
     }];
 }
@@ -77,7 +77,7 @@
 - (void)startHttpRequestWithUrl:(NSString *)url method:(HttpMethod)method para:(id)parameters success:(RequestSuccess)success failure:(RequestFaild)failure
 {
     [self networkReachableAndshowIndicator];
-    
+    __weak typeof(self) weakSelf = self;
     [HCDLog logUrl:url params:parameters];
 
     switch (method) {
@@ -85,11 +85,11 @@
         {
             [self.sessionManager GET:url parameters:parameters success: ^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
                 
-                [self hideNetworkIndicator];
+                [weakSelf hideNetworkIndicator];
                 success(responseObject);
                 
             }failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
-                
+                [weakSelf hideNetworkIndicator];
             }];
         }
             break;
@@ -97,12 +97,12 @@
         {
             [self.sessionManager POST:url parameters:parameters success:^(NSURLSessionDataTask * _Nonnull task, id  _Nonnull responseObject) {
                 
-                [self hideNetworkIndicator];
+                [weakSelf hideNetworkIndicator];
                 success(responseObject);
                 
             } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
                 
-                [self hideNetworkIndicator];
+                [weakSelf hideNetworkIndicator];
                 failure(error.localizedDescription);
             }];
         }
